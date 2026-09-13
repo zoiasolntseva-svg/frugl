@@ -8,11 +8,7 @@ export default function Success() {
     <main className="min-h-screen bg-paper text-ink flex flex-col items-center justify-center">
       <h1 className="text-3xl font-bold mb-6">Success! ??</h1>
       <p className="text-lg mb-4">
-        Your subscription has been activated.{${
-          sessionId
-            ? ` (Session ID: ${sessionId})`
-            : ""
-        }}
+        Your subscription has been activated.{sessionId ? ` (Session ID: ${sessionId})` : ""}
       </p>
       <Link 
         href="/" 

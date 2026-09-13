@@ -1,24 +1,22 @@
-import Link from "next/link";
-
-export default function Pricing() {
-  return (
-    <main className="min-h-screen bg-paper text-ink">
-      <section className="py-12 px-6">
-        <div className="max-w-4xl mx-auto">
-          <h1 className="text-3xl font-bold mb-6">Pricing</h1>
-          <p className="mb-6">
-            Monthly subscription: <span className="font-semibold">${process.env.STRIPE_PRICE_ID ? "$9.99" : "price TBD"}</span> per month.
-          </p>
-          <div className="mb-8">
-            <Link 
-              href="/" 
-              className="border border-primary text-primary px-4 py-2 rounded hover:bg-primary/10"
-            >
-              Back to Home
-            </Link>
-          </div>
-        </div>
-      </section>
-    </main>
-  );
-}
+ import Link from \"next/link\";
+>>
+>> export default function Success() {
+>>   const { searchParams } = new URL(window.location.href);
+>>   const sessionId = searchParams.get(\"session_id\");
+>>
+>>   return (
+>>     <main className=\"min-h-screen bg-paper text-ink flex flex-col items-center justify-center\">
+>>       <h1 className=\"text-3xl font-bold mb-6\">Success"'! ??</h1>
+>>       <p className="text-lg mb-4">
+>>         Your subscription has been activated.{sessionId ? ` (Session ID: ${sessionId})` : ""}
+>>       </p>
+>>       <Link
+>>         href="/"
+>>         className="bg-primary text-white px-6 py-3 rounded-lg font-medium hover:bg-primary/90 transition-colors"
+>>       >
+>>         Back to Home
+>>       </Link>
+>>     </main>
+>>   );
+>> }
+>> '"'@"
