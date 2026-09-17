@@ -21,6 +21,7 @@ type Macros = { protein: number; carbs: number; fat: number };
 type Allergens = Record<string, boolean>;
 type IngredientCost = { name: string; cost: number };
 type Goal = "balanced" | "weight_loss" | "muscle_gain";
+type Period = "weekly" | "monthly";
 
 type PlannedRecipe = {
   id: number;
@@ -50,7 +51,7 @@ const CATEGORICAL = [
   "#e34948", // red
 ];
 const TRACK_COLOR = "#e1e0d9";
-const MAX_REPEATS_PER_RECIPE = 3;
+const MAX_REPEATS_PER_RECIPE: Record<Period, number> = { weekly: 3, monthly: 12 };
 
 const GOALS: { value: Goal; label: string; description: string }[] = [
   { value: "balanced", label: "Balanced", description: "A varied, affordable mix" },
@@ -133,7 +134,7 @@ function BudgetDonut({ spent, budget }: { spent: number; budget: number }) {
   );
 }
 
-function CalorieDonut({ plan }: { plan: PlannedRecipe[] }) {
+function CalorieDonut({ plan, period }: { plan: PlannedRecipe[]; period: Period }) {
   const data = plan.map((r) => ({
     name: r.quantity > 1 ? `${r.name} ×${r.quantity}` : r.name,
     value: r.calories ?? 0,
@@ -164,7 +165,9 @@ function CalorieDonut({ plan }: { plan: PlannedRecipe[] }) {
           <Tooltip formatter={(value) => `${value} cal`} />
         </PieChart>
       </ResponsiveContainer>
-      <p className="text-center text-sm text-ink/60 -mt-2 mb-2">{total} cal total this week</p>
+      <p className="text-center text-sm text-ink/60 -mt-2 mb-2">
+        {total} cal total this {period === "weekly" ? "week" : "month"}
+      </p>
       <div className="flex flex-wrap justify-center gap-x-4 gap-y-1.5 text-xs">
         {data.map((d, i) => (
           <span key={i} className="flex items-center gap-1.5">
@@ -267,6 +270,7 @@ export default function Dashboard() {
   const [stores, setStores] = useState<string[]>([]);
   const [store, setStore] = useState("");
   const [budget, setBudget] = useState("");
+  const [period, setPeriod] = useState<Period>("weekly");
   const [city, setCity] = useState("");
   const [goal, setGoal] = useState<Goal>("balanced");
 
@@ -417,7 +421,7 @@ export default function Dashboard() {
       addedInLastPass = false;
       for (const c of sorted) {
         const currentQty = quantities.get(c.id) ?? 0;
-        if (currentQty >= MAX_REPEATS_PER_RECIPE) continue;
+        if (currentQty >= MAX_REPEATS_PER_RECIPE[period]) continue;
         if (c.unitCost <= remaining && c.unitCost > 0) {
           quantities.set(c.id, currentQty + 1);
           remaining -= c.unitCost;
@@ -491,7 +495,23 @@ export default function Dashboard() {
         >
           <div className="grid sm:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1">Weekly grocery budget (R)</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-sm font-medium">Grocery budget (R)</label>
+                <div className="inline-flex rounded-md border border-ink/15 overflow-hidden text-xs">
+                  {(["weekly", "monthly"] as Period[]).map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setPeriod(p)}
+                      className={`px-2 py-0.5 capitalize transition-colors ${
+                        period === p ? "bg-primary text-white" : "bg-white text-ink/60 hover:bg-ink/5"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <input
                 type="number"
                 min="1"
@@ -499,6 +519,7 @@ export default function Dashboard() {
                 required
                 value={budget}
                 onChange={(e) => setBudget(e.target.value)}
+                placeholder={period === "weekly" ? "e.g. 500" : "e.g. 2000"}
                 className="w-full border border-ink/20 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
@@ -568,13 +589,13 @@ export default function Dashboard() {
         {plan && plan.length > 0 && (
           <div className="space-y-6">
             <div className="grid sm:grid-cols-4 gap-4">
-              <StatTile label="Budget" value={currency(budgetNumber)} />
+              <StatTile label={period === "weekly" ? "Weekly budget" : "Monthly budget"} value={currency(budgetNumber)} />
               <StatTile label="Spent" value={currency(planTotal)} />
               <StatTile label="Left over" value={currency(Math.max(budgetNumber - planTotal, 0))} />
               <StatTile
                 label="Meals"
                 value={`${totalMeals}`}
-                sub={`${plan.length} recipes · ${totalCalories} cal total`}
+                sub={`${plan.length} recipes · ${totalCalories} cal total this ${period === "weekly" ? "week" : "month"}`}
               />
             </div>
 
@@ -583,7 +604,7 @@ export default function Dashboard() {
                 <BudgetDonut spent={planTotal} budget={budgetNumber} />
               </ChartCard>
               <ChartCard title="Calories by meal">
-                <CalorieDonut plan={plan} />
+                <CalorieDonut plan={plan} period={period} />
               </ChartCard>
             </div>
 
