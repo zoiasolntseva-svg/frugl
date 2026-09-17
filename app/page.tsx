@@ -23,17 +23,17 @@ export default function Home() {
           
           {/* Pricing and CTA */}
           <div className="flex flex-col sm:flex-row sm:space-x-4 justify-center mb-8">
-            <Link 
-              href="/pricing" 
+            <Link
+              href="/signup"
               className="bg-primary text-white px-6 py-3 rounded-lg font-medium hover:bg-primary/90 transition-colors"
             >
-              See Pricing
+              Get Started
             </Link>
-            <Link 
-              href="/pricing" 
+            <Link
+              href="/pricing"
               className="border border-primary text-primary px-6 py-3 rounded-lg font-medium hover:bg-primary/10 transition-colors"
             >
-              Get Started
+              See Pricing
             </Link>
           </div>
           
