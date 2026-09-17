@@ -33,7 +33,7 @@ export default function Login() {
   }
 
   return (
-    <main className="min-h-screen bg-paper text-ink flex flex-col items-center justify-center px-6">
+    <main className="flex-1 bg-paper text-ink flex flex-col items-center justify-center px-6">
       <div className="w-full max-w-sm">
         <h1 className="text-3xl font-bold mb-6 text-center">Log in</h1>
         <form onSubmit={handleSubmit} className="space-y-4">

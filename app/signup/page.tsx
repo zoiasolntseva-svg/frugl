@@ -39,7 +39,7 @@ export default function Signup() {
 
   if (checkEmail) {
     return (
-      <main className="min-h-screen bg-paper text-ink flex flex-col items-center justify-center px-6 text-center">
+      <main className="flex-1 bg-paper text-ink flex flex-col items-center justify-center px-6 text-center">
         <h1 className="text-2xl font-bold mb-4">Check your email</h1>
         <p>We sent a confirmation link to {email}. Confirm it, then come back and log in.</p>
         <Link href="/login" className="text-primary font-medium hover:underline mt-6">
@@ -50,7 +50,7 @@ export default function Signup() {
   }
 
   return (
-    <main className="min-h-screen bg-paper text-ink flex flex-col items-center justify-center px-6">
+    <main className="flex-1 bg-paper text-ink flex flex-col items-center justify-center px-6">
       <div className="w-full max-w-sm">
         <h1 className="text-3xl font-bold mb-6 text-center">Create your account</h1>
         <form onSubmit={handleSubmit} className="space-y-4">

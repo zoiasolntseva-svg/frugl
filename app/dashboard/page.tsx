@@ -302,11 +302,6 @@ export default function Dashboard() {
       });
   }, []);
 
-  async function handleLogout() {
-    await supabase.auth.signOut();
-    router.push("/");
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
@@ -466,7 +461,7 @@ export default function Dashboard() {
 
   if (checkingAuth) {
     return (
-      <main className="min-h-screen bg-paper text-ink flex items-center justify-center">
+      <main className="flex-1 bg-paper text-ink flex items-center justify-center">
         <p>Loading...</p>
       </main>
     );
@@ -477,16 +472,11 @@ export default function Dashboard() {
   const totalMeals = plan?.reduce((s, r) => s + r.quantity, 0) ?? 0;
 
   return (
-    <main className="min-h-screen bg-[#f9f9f7] text-ink px-6 py-10">
+    <main className="flex-1 bg-[#f9f9f7] text-ink px-6 py-10">
       <div className="max-w-5xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-2xl font-bold">Your Meal Plan</h1>
-            <p className="text-sm text-ink/50">Budget-smart groceries, sorted.</p>
-          </div>
-          <button onClick={handleLogout} className="text-sm text-primary hover:underline">
-            Log out
-          </button>
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold">Your Meal Plan</h1>
+          <p className="text-sm text-ink/50">Budget-smart groceries, sorted.</p>
         </div>
 
         <form

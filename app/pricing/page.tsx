@@ -2,7 +2,7 @@ import Link from "next/link";
 
 export default function Pricing() {
   return (
-    <main className="min-h-screen bg-paper text-ink">
+    <main className="flex-1 bg-paper text-ink">
       <section className="py-12 px-6">
         <div className="max-w-4xl mx-auto text-center">
           {/* Logo */}
