@@ -457,6 +457,21 @@ export default function Dashboard() {
 
     setPlan(withColor);
     setPlanTotal(budgetNumber - remaining);
+
+    if (user && withColor.length > 0) {
+      const totalCalories = withColor.reduce((sum, r) => sum + (r.calories ?? 0), 0);
+      const totalMeals = withColor.reduce((sum, r) => sum + r.quantity, 0);
+      await supabase.from("meal_plan_history").insert({
+        user_id: user.id,
+        store,
+        goal,
+        period,
+        budget: budgetNumber,
+        spent: budgetNumber - remaining,
+        total_calories: totalCalories,
+        meal_count: totalMeals,
+      });
+    }
   }
 
   if (checkingAuth) {

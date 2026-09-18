@@ -49,9 +49,14 @@ export default function Nav() {
             Pricing
           </Link>
           {checked && session && (
-            <Link href="/dashboard" className={linkClass("/dashboard")}>
-              Dashboard
-            </Link>
+            <>
+              <Link href="/dashboard" className={linkClass("/dashboard")}>
+                Dashboard
+              </Link>
+              <Link href="/progress" className={linkClass("/progress")}>
+                Progress
+              </Link>
+            </>
           )}
 
           {!checked ? null : session ? (
