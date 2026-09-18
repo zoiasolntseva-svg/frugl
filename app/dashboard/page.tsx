@@ -19,7 +19,7 @@ import { supabase } from "@/lib/supabase";
 
 type Macros = { protein: number; carbs: number; fat: number };
 type Allergens = Record<string, boolean>;
-type IngredientCost = { name: string; cost: number };
+type IngredientCost = { name: string; cost: number; unit: string; groceryPrice: number };
 type Goal = "balanced" | "weight_loss" | "muscle_gain";
 type Period = "weekly" | "monthly";
 
@@ -239,22 +239,27 @@ function RecipeCard({ recipe }: { recipe: PlannedRecipe }) {
       <p className="text-xs uppercase tracking-wide text-ink/50 font-medium mb-2">
         Price breakdown{recipe.quantity > 1 ? ` (×${recipe.quantity} batches)` : ""}
       </p>
-      <div className="space-y-1.5">
+      <div className="space-y-2.5">
         {recipe.ingredientBreakdown.map((ing) => (
-          <div key={ing.name} className="flex items-center gap-2">
-            <span className="text-xs text-ink/70 w-28 shrink-0 truncate">{ing.name}</span>
-            <div className="flex-1 h-2 bg-ink/5 rounded-full overflow-hidden">
-              <div
-                className="h-full rounded-full"
-                style={{
-                  width: `${(ing.cost / maxCost) * 100}%`,
-                  background: recipe.color,
-                }}
-              />
+          <div key={ing.name}>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-ink/70 w-28 shrink-0 truncate">{ing.name}</span>
+              <div className="flex-1 h-2 bg-ink/5 rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full"
+                  style={{
+                    width: `${(ing.cost / maxCost) * 100}%`,
+                    background: recipe.color,
+                  }}
+                />
+              </div>
+              <span className="text-xs font-medium text-ink/70 w-14 shrink-0 text-right">
+                {currency(ing.cost)}
+              </span>
             </div>
-            <span className="text-xs font-medium text-ink/70 w-14 shrink-0 text-right">
-              {currency(ing.cost)}
-            </span>
+            <p className="text-[11px] text-ink/40 pl-[7.5rem]">
+              Full {ing.unit}: {currency(ing.groceryPrice)}
+            </p>
           </div>
         ))}
       </div>
@@ -326,7 +331,7 @@ export default function Dashboard() {
       .from("recipes")
       .select(
         `id, name, instructions, prep_time, servings,
-         recipe_ingredients ( quantity, ingredients ( name, price, store ) ),
+         recipe_ingredients ( quantity, ingredients ( name, price, unit, store ) ),
          nutrition_info ( calories, macros, allergens )`
       );
 
@@ -345,7 +350,7 @@ export default function Dashboard() {
       servings: number;
       recipe_ingredients: {
         quantity: number;
-        ingredients: { name: string; price: number; store: string } | null;
+        ingredients: { name: string; price: number; unit: string; store: string } | null;
       }[];
       nutrition_info: { calories: number; macros: Macros; allergens: Allergens }[];
     };
@@ -376,6 +381,8 @@ export default function Dashboard() {
           .map((ri) => ({
             name: ri.ingredients?.name || "Unknown",
             cost: ri.quantity * (ri.ingredients?.price || 0),
+            unit: ri.ingredients?.unit || "unit",
+            groceryPrice: ri.ingredients?.price || 0,
           }))
           .sort((a, b) => b.cost - a.cost);
         return {
@@ -445,6 +452,8 @@ export default function Dashboard() {
           ingredientBreakdown: c.unitIngredientBreakdown.map((ing) => ({
             name: ing.name,
             cost: ing.cost * quantity,
+            unit: ing.unit,
+            groceryPrice: ing.groceryPrice,
           })),
         };
       })
