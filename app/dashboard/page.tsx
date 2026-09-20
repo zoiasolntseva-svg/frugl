@@ -16,6 +16,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { supabase } from "@/lib/supabase";
+import { EstimateNotice } from "@/app/components/EstimateNotice";
 
 type Macros = { protein: number; carbs: number; fat: number };
 type Allergens = Record<string, boolean>;
@@ -123,11 +124,11 @@ function BudgetDonut({ spent, budget }: { spent: number; budget: number }) {
             className="inline-block w-2.5 h-2.5 rounded-full"
             style={{ background: overBudget ? "#e34948" : "#2A9D67" }}
           />
-          Spent {currency(spent)}
+          Est. spent {currency(spent)}
         </span>
         <span className="flex items-center gap-1.5 text-ink/60">
           <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: TRACK_COLOR }} />
-          Left {currency(Math.max(budget - spent, 0))}
+          Est. left {currency(Math.max(budget - spent, 0))}
         </span>
       </div>
     </div>
@@ -237,7 +238,7 @@ function RecipeCard({ recipe }: { recipe: PlannedRecipe }) {
       <p className="text-sm mb-4">{recipe.instructions}</p>
 
       <p className="text-xs uppercase tracking-wide text-ink/50 font-medium mb-2">
-        Price breakdown{recipe.quantity > 1 ? ` (×${recipe.quantity} batches)` : ""}
+        Estimated price breakdown{recipe.quantity > 1 ? ` (×${recipe.quantity} batches)` : ""}
       </p>
       <div className="space-y-2.5">
         {recipe.ingredientBreakdown.map((ing) => (
@@ -258,7 +259,7 @@ function RecipeCard({ recipe }: { recipe: PlannedRecipe }) {
               </span>
             </div>
             <p className="text-[11px] text-ink/40 pl-[7.5rem]">
-              Full {ing.unit}: {currency(ing.groceryPrice)}
+              Est. full {ing.unit}: {currency(ing.groceryPrice)}
             </p>
           </div>
         ))}
@@ -564,7 +565,10 @@ export default function Dashboard() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2">Goal</label>
+            <label className="block text-sm font-medium mb-1">Goal</label>
+            <p className="text-xs text-ink/50 mb-2">
+              Goals only change which meals are suggested first. Nutrition figures are estimates, not medical advice.
+            </p>
             <div className="grid sm:grid-cols-3 gap-3">
               {GOALS.map((g) => (
                 <button
@@ -602,10 +606,11 @@ export default function Dashboard() {
 
         {plan && plan.length > 0 && (
           <div className="space-y-6">
+            <EstimateNotice />
             <div className="grid sm:grid-cols-4 gap-4">
               <StatTile label={period === "weekly" ? "Weekly budget" : "Monthly budget"} value={currency(budgetNumber)} />
-              <StatTile label="Spent" value={currency(planTotal)} />
-              <StatTile label="Left over" value={currency(Math.max(budgetNumber - planTotal, 0))} />
+              <StatTile label="Est. spent" value={currency(planTotal)} />
+              <StatTile label="Est. left over" value={currency(Math.max(budgetNumber - planTotal, 0))} />
               <StatTile
                 label="Meals"
                 value={`${totalMeals}`}
@@ -622,7 +627,7 @@ export default function Dashboard() {
               </ChartCard>
             </div>
 
-            <ChartCard title="Cost per meal">
+            <ChartCard title="Estimated cost per meal">
               <CostBarChart plan={plan} />
             </ChartCard>
 

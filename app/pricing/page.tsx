@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { EstimateNotice } from "@/app/components/EstimateNotice";
 
 type Billing = "monthly" | "yearly";
 
@@ -32,11 +33,11 @@ const TIERS: Tier[] = [
   },
   {
     name: "Plus",
-    tagline: "Full store comparison",
+    tagline: "Every store, every goal",
     monthly: 99,
     yearly: 950,
     features: [
-      "All 6 grocery stores",
+      "Estimated prices for all 6 grocery stores",
       "All goals (Weight Loss, Muscle Gain, Balanced)",
       "Weekly & monthly budgets",
       "Unlimited meal plans",
@@ -83,7 +84,7 @@ export default function Pricing() {
 
           <h1 className="text-4xl font-bold mb-3">Pricing</h1>
           <p className="text-lg text-ink/60 mb-8 max-w-md mx-auto">
-            Start free. Upgrade when you want the full store comparison and progress tracking.
+            Start free. Upgrade when you want every store, every goal, and progress tracking.
           </p>
 
           <div className="inline-flex items-center bg-white border border-ink/10 rounded-full p-1 mb-12 shadow-sm">
@@ -185,7 +186,11 @@ export default function Pricing() {
             })}
           </div>
 
-          <p className="text-sm text-ink/40 mt-10">
+          <div className="mt-10 flex justify-center">
+            <EstimateNotice compact />
+          </div>
+
+          <p className="text-sm text-ink/40 mt-4">
             Questions?{" "}
             <Link href="/" className="text-primary hover:underline">
               Back to home

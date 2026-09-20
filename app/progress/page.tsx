@@ -186,6 +186,10 @@ export default function Progress() {
         <div>
           <h1 className="text-2xl font-bold">Your Progress</h1>
           <p className="text-sm text-ink/50">Track your weight, strength, and calorie history over time.</p>
+          <p className="text-xs text-ink/40 mt-1">
+            For your own tracking only. Calorie history is based on the meal plans you generate, not what you
+            actually ate, and none of this is medical advice.
+          </p>
         </div>
 
         {/* Calorie / spend history — auto-populated from generated meal plans */}

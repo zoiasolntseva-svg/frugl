@@ -18,7 +18,7 @@ export default function Home() {
             Budget meals, sorted.
           </h1>
           <p className="text-xl mb-6">
-            Pick your grocery store, set a budget, and get meal plans that fit.
+            Pick your grocery store, set a budget, and get estimated meal plans that fit.
           </p>
           
           {/* Pricing and CTA */}
@@ -45,11 +45,11 @@ export default function Home() {
             </div>
             <div>
               <h3 className="font-semibold mb-2">Pick Your Store</h3>
-              <p>Select from supported grocery stores in your area.</p>
+              <p>Choose a South African grocery store to see estimated prices.</p>
             </div>
             <div>
               <h3 className="font-semibold mb-2">Get Meal Plans</h3>
-              <p>Receive optimized meal plans with recipes and nutrition info.</p>
+              <p>Receive meal plans with recipes and estimated prices and nutrition.</p>
             </div>
           </div>
         </div>
