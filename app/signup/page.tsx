@@ -4,11 +4,14 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { TERMS_VERSION, PRIVACY_VERSION } from "@/lib/legal";
 
 export default function Signup() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isAdult, setIsAdult] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [checkEmail, setCheckEmail] = useState(false);
@@ -16,11 +19,25 @@ export default function Signup() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+
+    if (!isAdult || !acceptedTerms) {
+      setError("Please confirm you are 18 or older and accept the Terms of Use and Privacy Policy.");
+      return;
+    }
+
     setLoading(true);
 
+    // The database records these choices (with its own timestamp) when the account is created.
     const { data, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        data: {
+          terms_version: TERMS_VERSION,
+          privacy_version: PRIVACY_VERSION,
+          adult_confirmed: true,
+        },
+      },
     });
 
     setLoading(false);
@@ -74,6 +91,38 @@ export default function Signup() {
               onChange={(e) => setPassword(e.target.value)}
               className="w-full border border-ink/20 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
             />
+          </div>
+          <div className="space-y-2.5 pt-1">
+            <label className="flex items-start gap-2.5 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                required
+                checked={isAdult}
+                onChange={(e) => setIsAdult(e.target.checked)}
+                className="mt-0.5 h-4 w-4 accent-primary shrink-0"
+              />
+              <span>I am 18 years old or older.</span>
+            </label>
+            <label className="flex items-start gap-2.5 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                required
+                checked={acceptedTerms}
+                onChange={(e) => setAcceptedTerms(e.target.checked)}
+                className="mt-0.5 h-4 w-4 accent-primary shrink-0"
+              />
+              <span>
+                I have read and accept the{" "}
+                <Link href="/terms" target="_blank" className="text-primary underline">
+                  Terms of Use
+                </Link>{" "}
+                (including the limits on Frugl&apos;s responsibility) and the{" "}
+                <Link href="/privacy" target="_blank" className="text-primary underline">
+                  Privacy Policy
+                </Link>
+                , and I understand that prices and nutrition are estimates.
+              </span>
+            </label>
           </div>
           {error && <p className="text-red-600 text-sm">{error}</p>}
           <button

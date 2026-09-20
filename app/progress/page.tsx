@@ -13,7 +13,9 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { HEALTH_CONSENT_VERSION } from "@/lib/legal";
 
 type WeightLog = { id: number; logged_at: string; weight_kg: number };
 type StrengthLog = {
@@ -77,6 +79,57 @@ export default function Progress() {
   const [savingWeight, setSavingWeight] = useState(false);
   const [savingStrength, setSavingStrength] = useState(false);
 
+  // null = still loading, false = not consented, true = consented
+  const [healthConsent, setHealthConsent] = useState<boolean | null>(null);
+  const [consentTicked, setConsentTicked] = useState(false);
+  const [savingConsent, setSavingConsent] = useState(false);
+  const [consentError, setConsentError] = useState("");
+
+  async function loadConsent(userId: string) {
+    const { data } = await supabase
+      .from("profiles")
+      .select("health_consent_at")
+      .eq("id", userId)
+      .maybeSingle();
+    setHealthConsent(Boolean(data?.health_consent_at));
+  }
+
+  async function handleGrantConsent() {
+    if (!consentTicked) return;
+    setSavingConsent(true);
+    setConsentError("");
+    const { error } = await supabase.rpc("grant_health_consent", {
+      p_version: HEALTH_CONSENT_VERSION,
+    });
+    setSavingConsent(false);
+    if (error) {
+      setConsentError("We couldn't save your consent. Please try again.");
+      return;
+    }
+    setHealthConsent(true);
+    setConsentTicked(false);
+  }
+
+  async function handleWithdrawConsent() {
+    if (!user) return;
+    const confirmed = window.confirm(
+      "Withdrawing consent will permanently delete all of your weight and strength records. Continue?"
+    );
+    if (!confirmed) return;
+    setSavingConsent(true);
+    setConsentError("");
+    const { error } = await supabase.rpc("withdraw_health_consent");
+    setSavingConsent(false);
+    if (error) {
+      setConsentError("We couldn't withdraw your consent. Please try again.");
+      return;
+    }
+    setHealthConsent(false);
+    setWeightLogs([]);
+    setStrengthLogs([]);
+    setSelectedExercise("");
+  }
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       if (!data.session) {
@@ -115,7 +168,10 @@ export default function Progress() {
   }
 
   useEffect(() => {
-    if (user) loadAll(user.id);
+    if (user) {
+      loadConsent(user.id);
+      loadAll(user.id);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
@@ -211,6 +267,55 @@ export default function Progress() {
           )}
         </ChartCard>
 
+        {healthConsent === false && (
+          <div className="bg-white border border-ink/10 rounded-2xl p-6 shadow-sm">
+            <h3 className="font-semibold text-lg mb-2">Turn on weight and strength tracking</h3>
+            <p className="text-sm text-ink/70 mb-3">
+              Tracking is optional. To show your weight and strength progress, Frugl needs your consent to
+              process this health information:
+            </p>
+            <ul className="list-disc pl-5 text-sm text-ink/70 space-y-1 mb-3">
+              <li>What: the body weight and strength records (exercise, weight lifted, reps and sets) you enter.</li>
+              <li>Why: only to show you your own progress charts. We don&apos;t sell it or use it for advertising.</li>
+              <li>
+                Where: stored in our database, which is hosted outside South Africa (in the EU). Only you can
+                see your records.
+              </li>
+              <li>
+                You can withdraw consent at any time. Doing so permanently deletes these records. The rest of
+                Frugl works without tracking.
+              </li>
+            </ul>
+            <p className="text-sm text-ink/70 mb-4">
+              Read our{" "}
+              <Link href="/privacy" className="text-primary underline">
+                Privacy Policy
+              </Link>{" "}
+              for details.
+            </p>
+            <label className="flex items-start gap-2.5 text-sm cursor-pointer mb-4">
+              <input
+                type="checkbox"
+                checked={consentTicked}
+                onChange={(e) => setConsentTicked(e.target.checked)}
+                className="mt-0.5 h-4 w-4 accent-primary shrink-0"
+              />
+              <span>I consent to Frugl processing my weight and strength records as described above.</span>
+            </label>
+            {consentError && <p className="text-red-600 text-sm mb-3">{consentError}</p>}
+            <button
+              type="button"
+              onClick={handleGrantConsent}
+              disabled={!consentTicked || savingConsent}
+              className="bg-primary text-white px-5 py-2 rounded-lg font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+            >
+              {savingConsent ? "Saving..." : "Turn on tracking"}
+            </button>
+          </div>
+        )}
+
+        {healthConsent && (
+        <>
         <div className="grid md:grid-cols-2 gap-6">
           {/* Weight tracking */}
           <div className="space-y-4">
@@ -340,6 +445,20 @@ export default function Progress() {
             </form>
           </div>
         </div>
+
+        <div className="text-xs text-ink/50">
+          <button
+            type="button"
+            onClick={handleWithdrawConsent}
+            disabled={savingConsent}
+            className="text-red-600 hover:underline disabled:opacity-50"
+          >
+            Withdraw consent and delete my weight and strength records
+          </button>
+          {consentError && <p className="text-red-600 mt-1">{consentError}</p>}
+        </div>
+        </>
+        )}
       </div>
     </main>
   );

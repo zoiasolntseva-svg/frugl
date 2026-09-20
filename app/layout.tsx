@@ -31,9 +31,20 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <footer className="border-t border-ink/10 bg-paper">
           <div className="max-w-5xl mx-auto px-6 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs text-ink/50">
             <p>Prices and nutrition in Frugl are estimates, not live store data.</p>
-            <Link href="/disclaimer" className="text-primary hover:underline">
-              Disclaimer
-            </Link>
+            <nav className="flex flex-wrap gap-x-4 gap-y-1">
+              <Link href="/terms" className="text-primary hover:underline">
+                Terms
+              </Link>
+              <Link href="/privacy" className="text-primary hover:underline">
+                Privacy
+              </Link>
+              <Link href="/disclaimer" className="text-primary hover:underline">
+                Disclaimer
+              </Link>
+              <Link href="/account" className="text-primary hover:underline">
+                Your data
+              </Link>
+            </nav>
           </div>
         </footer>
       </body>

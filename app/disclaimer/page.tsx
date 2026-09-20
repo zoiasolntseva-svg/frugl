@@ -69,7 +69,13 @@ export default function Disclaimer() {
           ))}
         </div>
 
-        <p className="text-sm text-ink/50 mt-12">
+        <p className="text-sm text-ink/50 mt-12 flex flex-wrap gap-x-4 gap-y-1">
+          <Link href="/terms" className="text-primary hover:underline">
+            Terms of Use
+          </Link>
+          <Link href="/privacy" className="text-primary hover:underline">
+            Privacy Policy
+          </Link>
           <Link href="/" className="text-primary hover:underline">
             Back to home
           </Link>
