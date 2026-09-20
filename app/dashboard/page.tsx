@@ -17,29 +17,18 @@ import {
 } from "recharts";
 import { supabase } from "@/lib/supabase";
 import { EstimateNotice } from "@/app/components/EstimateNotice";
+import ShoppingListCard from "@/app/components/ShoppingListCard";
+import { currency } from "@/lib/format";
+import {
+  buildPlan,
+  type Goal,
+  type Period,
+  type Recipe,
+  type ShoppingItem,
+  type PlannedRecipe as PlannerRecipe,
+} from "@/lib/planner";
 
-type Macros = { protein: number; carbs: number; fat: number };
-type Allergens = Record<string, boolean>;
-type IngredientCost = { name: string; cost: number; unit: string; groceryPrice: number };
-type Goal = "balanced" | "weight_loss" | "muscle_gain";
-type Period = "weekly" | "monthly";
-
-type PlannedRecipe = {
-  id: number;
-  name: string;
-  instructions: string;
-  prep_time: number;
-  servings: number;
-  unitCost: number;
-  unitCalories: number | null;
-  quantity: number;
-  cost: number; // unitCost * quantity
-  calories: number | null; // unitCalories * quantity
-  macros: Macros | null;
-  allergens: Allergens | null;
-  ingredientBreakdown: IngredientCost[]; // scaled by quantity
-  color: string;
-};
+type PlannedRecipe = PlannerRecipe & { color: string };
 
 // Validated categorical palette (fixed order — never cycled per-render logic, only by index)
 const CATEGORICAL = [
@@ -52,17 +41,12 @@ const CATEGORICAL = [
   "#e34948", // red
 ];
 const TRACK_COLOR = "#e1e0d9";
-const MAX_REPEATS_PER_RECIPE: Record<Period, number> = { weekly: 3, monthly: 12 };
 
 const GOALS: { value: Goal; label: string; description: string }[] = [
   { value: "balanced", label: "Balanced", description: "A varied, affordable mix" },
   { value: "weight_loss", label: "Weight Loss", description: "Lower-calorie meals first" },
   { value: "muscle_gain", label: "Muscle Gain", description: "High-protein meals first" },
 ];
-
-function currency(n: number) {
-  return `R${n.toFixed(2)}`;
-}
 
 function StatTile({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
@@ -231,14 +215,14 @@ function RecipeCard({ recipe }: { recipe: PlannedRecipe }) {
         </span>
       </div>
       <p className="text-sm text-ink/60 mb-3">
-        {recipe.prep_time} min &middot; serves {recipe.servings}
+        {recipe.prepTime} min &middot; serves {recipe.servings}
         {recipe.unitCalories ? ` · ${recipe.unitCalories} cal/batch` : ""}
         {recipe.macros ? ` · ${recipe.macros.protein}g protein` : ""}
       </p>
       <p className="text-sm mb-4">{recipe.instructions}</p>
 
       <p className="text-xs uppercase tracking-wide text-ink/50 font-medium mb-2">
-        Estimated price breakdown{recipe.quantity > 1 ? ` (×${recipe.quantity} batches)` : ""}
+        Est. cost of the ingredients this meal uses{recipe.quantity > 1 ? ` (×${recipe.quantity} batches)` : ""}
       </p>
       <div className="space-y-2.5">
         {recipe.ingredientBreakdown.map((ing) => (
@@ -259,7 +243,7 @@ function RecipeCard({ recipe }: { recipe: PlannedRecipe }) {
               </span>
             </div>
             <p className="text-[11px] text-ink/40 pl-[7.5rem]">
-              Est. full {ing.unit}: {currency(ing.groceryPrice)}
+              Est. pack ({ing.packLabel}): {currency(ing.packPrice)}
             </p>
           </div>
         ))}
@@ -283,7 +267,11 @@ export default function Dashboard() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [plan, setPlan] = useState<PlannedRecipe[] | null>(null);
+  const [shoppingList, setShoppingList] = useState<ShoppingItem[]>([]);
+  // planTotal is the whole-pack shopping total (what you'd pay at the till)
   const [planTotal, setPlanTotal] = useState(0);
+  const [portionTotal, setPortionTotal] = useState(0);
+  const [leftoverValue, setLeftoverValue] = useState(0);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -312,6 +300,7 @@ export default function Dashboard() {
     e.preventDefault();
     setError("");
     setPlan(null);
+    setShoppingList([]);
 
     const budgetNumber = parseFloat(budget);
     if (!store || !budgetNumber || budgetNumber <= 0) {
@@ -332,8 +321,8 @@ export default function Dashboard() {
       .from("recipes")
       .select(
         `id, name, instructions, prep_time, servings,
-         recipe_ingredients ( quantity, ingredients ( name, price, unit, store ) ),
-         nutrition_info ( calories, macros, allergens )`
+         recipe_ingredients ( quantity, ingredients ( id, name, category, price, unit, pack_size, pack_label, store ) ),
+         nutrition_info ( calories, macros )`
       );
 
     setSaving(false);
@@ -343,143 +332,79 @@ export default function Dashboard() {
       return;
     }
 
+    type RawIngredient = {
+      id: number;
+      name: string;
+      category: string;
+      price: number;
+      unit: string;
+      pack_size: number | null;
+      pack_label: string | null;
+      store: string;
+    };
     type RawRecipe = {
       id: number;
       name: string;
       instructions: string;
       prep_time: number;
       servings: number;
-      recipe_ingredients: {
-        quantity: number;
-        ingredients: { name: string; price: number; unit: string; store: string } | null;
-      }[];
-      nutrition_info: { calories: number; macros: Macros; allergens: Allergens }[];
+      recipe_ingredients: { quantity: number; ingredients: RawIngredient | null }[];
+      nutrition_info: { calories: number; macros: Recipe["macros"] }[];
     };
 
-    type Candidate = {
-      id: number;
-      name: string;
-      instructions: string;
-      prep_time: number;
-      servings: number;
-      unitCost: number;
-      unitCalories: number | null;
-      macros: Macros | null;
-      allergens: Allergens | null;
-      unitIngredientBreakdown: IngredientCost[];
-    };
+    const storeRecipes: Recipe[] = ((recipes as unknown as RawRecipe[]) || [])
+      .map((r) => ({
+        id: r.id,
+        name: r.name,
+        instructions: r.instructions,
+        prepTime: r.prep_time,
+        servings: r.servings,
+        calories: r.nutrition_info[0]?.calories ?? null,
+        macros: r.nutrition_info[0]?.macros ?? null,
+        ingredients: r.recipe_ingredients
+          .filter((ri) => ri.ingredients?.store === store)
+          .map((ri) => {
+            const ing = ri.ingredients as RawIngredient;
+            return {
+              quantity: Number(ri.quantity),
+              ingredient: {
+                id: ing.id,
+                name: ing.name,
+                category: ing.category,
+                unit: ing.unit,
+                price: Number(ing.price),
+                packSize: Number(ing.pack_size) || 1,
+                packLabel: ing.pack_label || `1 ${ing.unit}`,
+              },
+            };
+          }),
+      }))
+      .filter((r) => r.ingredients.length > 0);
 
-    const candidates: Candidate[] = ((recipes as unknown as RawRecipe[]) || [])
-      .map((r) => {
-        const storeIngredients = r.recipe_ingredients.filter(
-          (ri) => ri.ingredients?.store === store
-        );
-        return { r, storeIngredients };
-      })
-      .filter(({ storeIngredients }) => storeIngredients.length > 0)
-      .map(({ r, storeIngredients }) => {
-        const unitIngredientBreakdown = storeIngredients
-          .map((ri) => ({
-            name: ri.ingredients?.name || "Unknown",
-            cost: ri.quantity * (ri.ingredients?.price || 0),
-            unit: ri.ingredients?.unit || "unit",
-            groceryPrice: ri.ingredients?.price || 0,
-          }))
-          .sort((a, b) => b.cost - a.cost);
-        return {
-          id: r.id,
-          name: r.name,
-          instructions: r.instructions,
-          prep_time: r.prep_time,
-          servings: r.servings,
-          unitCost: unitIngredientBreakdown.reduce((sum, i) => sum + i.cost, 0),
-          unitCalories: r.nutrition_info[0]?.calories ?? null,
-          macros: r.nutrition_info[0]?.macros ?? null,
-          allergens: r.nutrition_info[0]?.allergens ?? null,
-          unitIngredientBreakdown,
-        };
-      });
+    // The planner checks the budget against the whole-pack shopping total.
+    const result = buildPlan(storeRecipes, budgetNumber, goal, period);
 
-    // Order candidates by how well they serve the chosen goal
-    const sorted = [...candidates].sort((a, b) => {
-      if (goal === "weight_loss") {
-        const calDiff = (a.unitCalories ?? Infinity) - (b.unitCalories ?? Infinity);
-        if (calDiff !== 0) return calDiff;
-        return a.unitCost - b.unitCost;
-      }
-      if (goal === "muscle_gain") {
-        const proteinDiff = (b.macros?.protein ?? 0) - (a.macros?.protein ?? 0);
-        if (proteinDiff !== 0) return proteinDiff;
-        return a.unitCost - b.unitCost;
-      }
-      return a.unitCost - b.unitCost;
-    });
-
-    // Fill the budget: repeat passes over the sorted list so a bigger budget
-    // buys more (extra batches of cheap/goal-fitting meals) instead of going unused.
-    const quantities = new Map<number, number>();
-    let remaining = budgetNumber;
-    let addedInLastPass = true;
-    while (addedInLastPass && remaining > 0) {
-      addedInLastPass = false;
-      for (const c of sorted) {
-        const currentQty = quantities.get(c.id) ?? 0;
-        if (currentQty >= MAX_REPEATS_PER_RECIPE[period]) continue;
-        if (c.unitCost <= remaining && c.unitCost > 0) {
-          quantities.set(c.id, currentQty + 1);
-          remaining -= c.unitCost;
-          addedInLastPass = true;
-        }
-      }
-    }
-
-    const selected = sorted
-      .filter((c) => (quantities.get(c.id) ?? 0) > 0)
-      .map((c) => {
-        const quantity = quantities.get(c.id) ?? 0;
-        return {
-          id: c.id,
-          name: c.name,
-          instructions: c.instructions,
-          prep_time: c.prep_time,
-          servings: c.servings,
-          unitCost: c.unitCost,
-          unitCalories: c.unitCalories,
-          quantity,
-          cost: c.unitCost * quantity,
-          calories: c.unitCalories !== null ? c.unitCalories * quantity : null,
-          macros: c.macros,
-          allergens: c.allergens,
-          ingredientBreakdown: c.unitIngredientBreakdown.map((ing) => ({
-            name: ing.name,
-            cost: ing.cost * quantity,
-            unit: ing.unit,
-            groceryPrice: ing.groceryPrice,
-          })),
-        };
-      })
-      .sort((a, b) => a.unitCost - b.unitCost);
-
-    const withColor: PlannedRecipe[] = selected.map((r, i) => ({
+    const withColor: PlannedRecipe[] = result.recipes.map((r, i) => ({
       ...r,
       color: CATEGORICAL[i % CATEGORICAL.length],
     }));
 
     setPlan(withColor);
-    setPlanTotal(budgetNumber - remaining);
+    setShoppingList(result.shoppingList);
+    setPlanTotal(result.tillTotal);
+    setPortionTotal(result.portionTotal);
+    setLeftoverValue(result.leftoverValue);
 
     if (user && withColor.length > 0) {
-      const totalCalories = withColor.reduce((sum, r) => sum + (r.calories ?? 0), 0);
-      const totalMeals = withColor.reduce((sum, r) => sum + r.quantity, 0);
       await supabase.from("meal_plan_history").insert({
         user_id: user.id,
         store,
         goal,
         period,
         budget: budgetNumber,
-        spent: budgetNumber - remaining,
-        total_calories: totalCalories,
-        meal_count: totalMeals,
+        spent: result.tillTotal,
+        total_calories: result.totalCalories,
+        meal_count: result.totalMeals,
       });
     }
   }
@@ -609,14 +534,21 @@ export default function Dashboard() {
             <EstimateNotice />
             <div className="grid sm:grid-cols-4 gap-4">
               <StatTile label={period === "weekly" ? "Weekly budget" : "Monthly budget"} value={currency(budgetNumber)} />
-              <StatTile label="Est. spent" value={currency(planTotal)} />
-              <StatTile label="Est. left over" value={currency(Math.max(budgetNumber - planTotal, 0))} />
+              <StatTile label="Est. shopping total" value={currency(planTotal)} sub="whole packs, at the till" />
+              <StatTile label="Est. left in budget" value={currency(Math.max(budgetNumber - planTotal, 0))} />
               <StatTile
                 label="Meals"
                 value={`${totalMeals}`}
                 sub={`${plan.length} recipes · ${totalCalories} cal total this ${period === "weekly" ? "week" : "month"}`}
               />
             </div>
+
+            <ShoppingListCard
+              items={shoppingList}
+              total={planTotal}
+              portionTotal={portionTotal}
+              leftoverValue={leftoverValue}
+            />
 
             <div className="grid md:grid-cols-2 gap-6">
               <ChartCard title="Budget usage">
@@ -627,7 +559,7 @@ export default function Dashboard() {
               </ChartCard>
             </div>
 
-            <ChartCard title="Estimated cost per meal">
+            <ChartCard title="Estimated ingredient cost per meal (portions used)">
               <CostBarChart plan={plan} />
             </ChartCard>
 

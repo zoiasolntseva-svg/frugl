@@ -15,9 +15,10 @@ const SECTIONS: { title: string; body: string[] }[] = [
     ],
   },
   {
-    title: "Your till total will usually be higher",
+    title: "Whole packs and your real till total",
     body: [
-      "A recipe uses a portion of an ingredient (for example, part of a tub of yoghurt), but stores sell whole packs. Frugl shows both the portion cost and the estimated full pack price, but the meal plan total is based on portions. What you actually pay at the till will usually be higher.",
+      "A recipe uses a portion of an ingredient (for example, part of a tub of yoghurt), but stores sell whole packs. Frugl builds a shopping list in whole packs, shares ingredients between meals, and checks your budget against that shopping total. It also shows what each meal uses and what is left over.",
+      "The pack sizes are typical sizes that we assumed, and they are estimates like the prices. Real pack sizes, prices, specials and loyalty deals vary, so what you actually pay at the till may be higher or lower than the estimate.",
     ],
   },
   {

@@ -40,7 +40,7 @@ const sections: LegalSection[] = [
   {
     title: "Your responsibility for decisions",
     body: [
-      "Because prices and nutrition are estimates, please check real prices and product labels before you buy. Your actual till total will usually be higher than the estimate, because stores sell whole packs.",
+      "Because prices and nutrition are estimates, please check real prices and product labels before you buy. Your actual till total may differ from the estimate: we assume typical pack sizes, and stores' pack sizes, prices and specials vary.",
       "If you have a medical condition, allergy or special dietary need, speak to a doctor or registered dietitian and always read product labels. Do not rely on Frugl for allergen information.",
     ],
   },

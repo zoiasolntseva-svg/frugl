@@ -22,9 +22,9 @@ export function EstimateNotice({ compact = false }: { compact?: boolean }) {
       <p className="font-semibold mb-1">These are estimates</p>
       <p className="text-amber-900/80">
         Prices are our estimates (compiled {PRICES_COMPILED}), not live prices from any store, and the
-        differences between stores are approximate. Your actual till total will usually be higher,
-        because stores sell whole packs rather than the portions used in a recipe. Nutrition figures
-        are estimates only and are not medical advice.{" "}
+        differences between stores are approximate. The shopping total assumes typical pack sizes, so
+        your real till total may differ: pack sizes, prices, specials and loyalty deals vary. Nutrition
+        figures are estimates only and are not medical advice.{" "}
         <Link href="/disclaimer" className="underline font-medium">
           Read the full disclaimer
         </Link>
