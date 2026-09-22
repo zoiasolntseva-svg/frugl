@@ -111,6 +111,30 @@ export function portionCostOf(recipe: Recipe): number {
   return recipe.ingredients.reduce((sum, ri) => sum + ri.quantity * ri.ingredient.price, 0);
 }
 
+/**
+ * Scale a recipe's ingredient quantities, calories and macros so one batch
+ * feeds `householdSize` people instead of the recipe's own `servings`. A
+ * recipe written for 2 that's scaled to a household of 4 uses twice the
+ * ingredients (and costs twice as much) per batch.
+ */
+export function scaleToHousehold(recipe: Recipe, householdSize: number): Recipe {
+  const factor = householdSize / recipe.servings;
+  if (factor === 1) return recipe;
+  return {
+    ...recipe,
+    servings: householdSize,
+    calories: recipe.calories !== null ? recipe.calories * factor : null,
+    macros: recipe.macros
+      ? {
+          protein: recipe.macros.protein * factor,
+          carbs: recipe.macros.carbs * factor,
+          fat: recipe.macros.fat * factor,
+        }
+      : null,
+    ingredients: recipe.ingredients.map((ri) => ({ ...ri, quantity: ri.quantity * factor })),
+  };
+}
+
 type Selection = { recipe: Recipe; batches: number }[];
 
 /** Combine every meal's ingredients and round up to whole packs. */
@@ -170,10 +194,19 @@ function orderForGoal(recipes: Recipe[], goal: Goal): Recipe[] {
  * Pick meals for a budget. Meals are tried in the order the goal prefers, and
  * a meal (or another batch of it) is only added if the whole-pack shopping
  * total still fits the budget. Repeated passes let a bigger budget buy more.
+ * `householdSize` scales every recipe (see scaleToHousehold) so a bigger
+ * household needs more per batch, not just more batches.
  */
-export function buildPlan(recipes: Recipe[], budget: number, goal: Goal, period: Period): Plan {
+export function buildPlan(
+  recipes: Recipe[],
+  budget: number,
+  goal: Goal,
+  period: Period,
+  householdSize: number
+): Plan {
+  const household = Math.max(1, Math.round(householdSize));
   const ordered = orderForGoal(
-    recipes.filter((r) => portionCostOf(r) > 0),
+    recipes.map((r) => scaleToHousehold(r, household)).filter((r) => portionCostOf(r) > 0),
     goal
   );
   const cap = MAX_REPEATS_PER_RECIPE[period];

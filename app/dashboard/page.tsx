@@ -262,6 +262,7 @@ export default function Dashboard() {
   const [budget, setBudget] = useState("");
   const [period, setPeriod] = useState<Period>("weekly");
   const [city, setCity] = useState("");
+  const [householdSize, setHouseholdSize] = useState(2);
   const [goal, setGoal] = useState<Goal>("balanced");
 
   const [saving, setSaving] = useState(false);
@@ -281,6 +282,18 @@ export default function Dashboard() {
       }
       setUser(data.session.user);
       setCheckingAuth(false);
+
+      supabase
+        .from("profiles")
+        .select("store_preference, city, household_size")
+        .eq("id", data.session.user.id)
+        .maybeSingle()
+        .then(({ data: profile }) => {
+          if (!profile) return;
+          if (profile.store_preference) setStore(profile.store_preference);
+          if (profile.city) setCity(profile.city);
+          if (profile.household_size) setHouseholdSize(profile.household_size);
+        });
     });
   }, [router]);
 
@@ -313,7 +326,7 @@ export default function Dashboard() {
     if (user) {
       await supabase
         .from("profiles")
-        .update({ store_preference: store, city })
+        .update({ store_preference: store, city, household_size: householdSize })
         .eq("id", user.id);
     }
 
@@ -382,7 +395,7 @@ export default function Dashboard() {
       .filter((r) => r.ingredients.length > 0);
 
     // The planner checks the budget against the whole-pack shopping total.
-    const result = buildPlan(storeRecipes, budgetNumber, goal, period);
+    const result = buildPlan(storeRecipes, budgetNumber, goal, period, householdSize);
 
     const withColor: PlannedRecipe[] = result.recipes.map((r, i) => ({
       ...r,
@@ -405,6 +418,7 @@ export default function Dashboard() {
         spent: result.tillTotal,
         total_calories: result.totalCalories,
         meal_count: result.totalMeals,
+        household_size: householdSize,
       });
     }
   }
@@ -433,7 +447,7 @@ export default function Dashboard() {
           onSubmit={handleSubmit}
           className="bg-white border border-ink/10 rounded-2xl p-6 mb-8 shadow-sm space-y-4"
         >
-          <div className="grid sm:grid-cols-3 gap-4">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="block text-sm font-medium">Grocery budget (R)</label>
@@ -477,6 +491,39 @@ export default function Dashboard() {
                   </option>
                 ))}
               </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Household size</label>
+              <div className="flex items-stretch border border-ink/20 rounded-lg overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setHouseholdSize((n) => Math.max(1, n - 1))}
+                  aria-label="Fewer people"
+                  className="px-3 text-lg text-ink/60 hover:bg-ink/5 transition-colors"
+                >
+                  −
+                </button>
+                <input
+                  type="number"
+                  min={1}
+                  max={12}
+                  value={householdSize}
+                  onChange={(e) => {
+                    const n = parseInt(e.target.value, 10);
+                    if (!Number.isNaN(n)) setHouseholdSize(Math.min(12, Math.max(1, n)));
+                  }}
+                  className="w-full text-center focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => setHouseholdSize((n) => Math.min(12, n + 1))}
+                  aria-label="More people"
+                  className="px-3 text-lg text-ink/60 hover:bg-ink/5 transition-colors"
+                >
+                  +
+                </button>
+              </div>
+              <p className="text-[11px] text-ink/40 mt-1">Recipes scale to feed this many people</p>
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">City (optional)</label>

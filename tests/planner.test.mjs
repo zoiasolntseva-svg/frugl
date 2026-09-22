@@ -5,6 +5,8 @@ import {
   buildShoppingList,
   shoppingTotal,
   buildPlan,
+  scaleToHousehold,
+  portionCostOf,
   MAX_REPEATS_PER_RECIPE,
 } from "../lib/planner.ts";
 
@@ -110,7 +112,7 @@ test("the shopping total never exceeds the budget", () => {
   for (const budget of [40, 100, 250, 400, 500, 800, 1000, 1500, 3000]) {
     for (const goal of ["balanced", "weight_loss", "muscle_gain"]) {
       for (const period of ["weekly", "monthly"]) {
-        const plan = buildPlan(catalogue, budget, goal, period);
+        const plan = buildPlan(catalogue, budget, goal, period, 2);
         assert.ok(
           plan.tillTotal <= budget + 1e-6,
           `R${budget} ${goal}/${period}: till total ${plan.tillTotal} exceeds budget`
@@ -122,22 +124,22 @@ test("the shopping total never exceeds the budget", () => {
 });
 
 test("portion cost plus leftover value equals the shopping total", () => {
-  const plan = buildPlan(catalogue, 1000, "balanced", "weekly");
+  const plan = buildPlan(catalogue, 1000, "balanced", "weekly", 2);
   const tolerance = 0.01 * plan.shoppingList.length + 0.01;
   assert.ok(Math.abs(plan.portionTotal + plan.leftoverValue - plan.tillTotal) < tolerance);
   assert.ok(plan.tillTotal >= plan.portionTotal - 1e-6, "you can never pay less than you use");
 });
 
 test("a bigger budget buys more meals", () => {
-  const small = buildPlan(catalogue, 150, "balanced", "monthly").totalMeals;
-  const medium = buildPlan(catalogue, 500, "balanced", "monthly").totalMeals;
-  const large = buildPlan(catalogue, 1500, "balanced", "monthly").totalMeals;
+  const small = buildPlan(catalogue, 150, "balanced", "monthly", 2).totalMeals;
+  const medium = buildPlan(catalogue, 500, "balanced", "monthly", 2).totalMeals;
+  const large = buildPlan(catalogue, 1500, "balanced", "monthly", 2).totalMeals;
   assert.ok(small < medium, `${small} should be fewer than ${medium}`);
   assert.ok(medium < large, `${medium} should be fewer than ${large}`);
 });
 
 test("a budget below the cheapest shop gives an empty plan", () => {
-  const plan = buildPlan(catalogue, 20, "balanced", "weekly");
+  const plan = buildPlan(catalogue, 20, "balanced", "weekly", 2);
   assert.equal(plan.recipes.length, 0);
   assert.equal(plan.tillTotal, 0);
   assert.equal(plan.totalMeals, 0);
@@ -146,7 +148,7 @@ test("a budget below the cheapest shop gives an empty plan", () => {
 test("sharing a pack makes the next batch free", () => {
   const riceOnly = recipe("Plain rice", 300, 5, [[rice, 0.5]]);
   // R24.99 buys one 1 kg bag, which covers two 0.5 kg batches but not a third
-  const plan = buildPlan([riceOnly], 24.99, "balanced", "monthly");
+  const plan = buildPlan([riceOnly], 24.99, "balanced", "monthly", 2);
   assert.equal(plan.totalMeals, 2);
   assert.equal(plan.tillTotal, 24.99);
 });
@@ -156,22 +158,79 @@ test("weight loss and muscle gain prefer different meals", () => {
   const heavy = recipe("Protein feast", 800, 60, [[chicken, 1]]);
   // enough for either the salad or the chicken, not both
   const budget = 95;
-  const loss = buildPlan([light, heavy], budget, "weight_loss", "weekly");
-  const gain = buildPlan([light, heavy], budget, "muscle_gain", "weekly");
+  const loss = buildPlan([light, heavy], budget, "weight_loss", "weekly", 2);
+  const gain = buildPlan([light, heavy], budget, "muscle_gain", "weekly", 2);
   assert.equal(loss.recipes[0].name, "Light salad");
   assert.equal(gain.recipes[0].name, "Protein feast");
 });
 
 test("repeat batches are capped per period", () => {
   const cheap = recipe("Cheap oats", 200, 8, [[oats, 0.1]]);
-  const weekly = buildPlan([cheap], 100000, "balanced", "weekly");
-  const monthly = buildPlan([cheap], 100000, "balanced", "monthly");
+  const weekly = buildPlan([cheap], 100000, "balanced", "weekly", 2);
+  const monthly = buildPlan([cheap], 100000, "balanced", "monthly", 2);
   assert.equal(weekly.recipes[0].quantity, MAX_REPEATS_PER_RECIPE.weekly);
   assert.equal(monthly.recipes[0].quantity, MAX_REPEATS_PER_RECIPE.monthly);
 });
 
+test("scaleToHousehold: matching household size leaves the recipe unchanged", () => {
+  const scaled = scaleToHousehold(chickenRice, 2); // chickenRice.servings is 2
+  assert.equal(scaled, chickenRice); // same object, not just equal values: no-op fast path
+});
+
+test("scaleToHousehold: doubling the household doubles ingredients, calories and macros", () => {
+  const scaled = scaleToHousehold(chickenRice, 4); // 2 -> 4 people
+  assert.equal(scaled.servings, 4);
+  assert.equal(scaled.calories, chickenRice.calories * 2);
+  assert.equal(scaled.macros.protein, chickenRice.macros.protein * 2);
+  for (let i = 0; i < scaled.ingredients.length; i++) {
+    assert.equal(scaled.ingredients[i].quantity, chickenRice.ingredients[i].quantity * 2);
+  }
+  assert.equal(portionCostOf(scaled), portionCostOf(chickenRice) * 2);
+  // the original recipe object must not be mutated
+  assert.equal(chickenRice.servings, 2);
+});
+
+test("scaleToHousehold: a household smaller than the recipe's servings shrinks it", () => {
+  const scaled = scaleToHousehold(chickenRice, 1); // 2 -> 1 person
+  assert.equal(scaled.servings, 1);
+  assert.ok(Math.abs(portionCostOf(scaled) - portionCostOf(chickenRice) / 2) < 1e-9);
+});
+
+test("the same budget buys fewer meals for a bigger household, not more food for free", () => {
+  const budget = 300;
+  const solo = buildPlan(catalogue, budget, "balanced", "weekly", 1);
+  const family = buildPlan(catalogue, budget, "balanced", "weekly", 6);
+
+  assert.ok(
+    family.totalMeals < solo.totalMeals,
+    `a household of 6 (${family.totalMeals} meals) should fit fewer meal occasions than 1 (${solo.totalMeals}) on the same budget`
+  );
+  for (const plan of [solo, family]) {
+    assert.ok(plan.tillTotal <= budget + 1e-6);
+  }
+  // every recipe actually serves the household size, not its original servings
+  for (const r of family.recipes) {
+    assert.equal(r.servings, 6);
+  }
+  for (const r of solo.recipes) {
+    assert.equal(r.servings, 1);
+  }
+});
+
+test("household size never goes below 1 and is rounded to a whole person", () => {
+  const zero = buildPlan(catalogue, 500, "balanced", "weekly", 0);
+  const fractional = buildPlan(catalogue, 500, "balanced", "weekly", 2.4);
+  const negative = buildPlan(catalogue, 500, "balanced", "weekly", -3);
+  assert.deepEqual(
+    zero.recipes.map((r) => r.servings),
+    negative.recipes.map((r) => r.servings)
+  );
+  assert.ok(zero.recipes.every((r) => r.servings === 1));
+  assert.ok(fractional.recipes.every((r) => r.servings === 2));
+});
+
 test("shopping list carries what the UI needs", () => {
-  const plan = buildPlan(catalogue, 800, "balanced", "weekly");
+  const plan = buildPlan(catalogue, 800, "balanced", "weekly", 2);
   assert.ok(plan.shoppingList.length > 0);
   for (const item of plan.shoppingList) {
     assert.ok(item.packsToBuy >= 1);
